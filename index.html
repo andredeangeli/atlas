@@ -289,6 +289,7 @@
 			from {
 				transform: rotate(0);
 			}
+
 			to {
 				transform: rotate(360deg);
 			}
@@ -298,6 +299,7 @@
 			from {
 				transform: rotate(360deg);
 			}
+
 			to {
 				transform: rotate(0);
 			}
@@ -307,6 +309,7 @@
 			0%, 100% {
 				transform: scale(1);
 			}
+
 			50% {
 				transform: scale(1.05);
 			}
@@ -405,11 +408,18 @@
 		const systemStatus = document.getElementById("systemStatus");
 		const voiceState = document.getElementById("voiceState");
 
-		let voices = [];
+		const SpeechRecognition =
+			window.SpeechRecognition ||
+			window.webkitSpeechRecognition;
+
 		let recognition = null;
 		let ouvindo = false;
-		let reiniciando = false;
-		let timerReconexao = null;
+		let falando = false;
+		let iniciando = false;
+		let esperandoReinicio = false;
+		let timerReinicio = null;
+		let ultimoComando = "";
+		let ultimoTempo = 0;
 		let acordando = false;
 
 		const dialogos = {
@@ -433,8 +443,7 @@
 				"Disponha.",
 				"Sempre que precisar.",
 				"Não há de quê.",
-				"Serviço concluído.",
-				"Foi um prazer ajudar."
+				"Serviço concluído."
 			],
 
 			presente: [
@@ -448,8 +457,7 @@
 			identidade: [
 				"Eu sou ATLAS, seu assistente virtual.",
 				"Meu nome é ATLAS.",
-				"ATLAS. Sistema de assistência e automação.",
-				"Sou o ATLAS. Posso controlar tarefas, abrir aplicações e executar comandos."
+				"ATLAS. Sistema de assistência e automação."
 			],
 
 			comoEstou: [
@@ -460,7 +468,7 @@
 			],
 
 			oQueFaz: [
-				"Posso abrir sites, controlar algumas funções do navegador, ouvir comandos e executar tarefas.",
+				"Posso abrir sites, ouvir comandos e executar tarefas.",
 				"Minha função é auxiliar você com comandos, navegação e automação.",
 				"Posso executar comandos de voz e abrir suas ferramentas."
 			],
@@ -468,14 +476,12 @@
 			elogio: [
 				"Obrigado.",
 				"Agradeço.",
-				"Fico satisfeito que o sistema esteja funcionando como esperado.",
 				"Registro o elogio."
 			],
 
 			humor: [
 				"Meu senso de humor ainda está em desenvolvimento.",
 				"Posso tentar. Mas não prometo que meus algoritmos sejam engraçados.",
-				"Humor detectado. Processando resposta.",
 				"Essa foi boa."
 			],
 
@@ -483,15 +489,13 @@
 				"Até mais.",
 				"Sistema em espera.",
 				"Até a próxima.",
-				"Entrando em modo de espera.",
-				"Estarei aqui quando precisar."
+				"Entrando em modo de espera."
 			],
 
 			ocupado: [
 				"Estou executando uma tarefa.",
 				"Ainda estou processando a solicitação anterior.",
-				"Um momento. Estou terminando a operação.",
-				"Processo em andamento."
+				"Um momento. Estou terminando a operação."
 			]
 		};
 
@@ -499,45 +503,65 @@
 			return lista[Math.floor(Math.random() * lista.length)];
 		}
 
-		function carregarVozes() {
-			voices = speechSynthesis.getVoices();
+		function normalizar(texto) {
+			return texto
+				.toLowerCase()
+				.normalize("NFD")
+				.replace(/[\u0300-\u036f]/g, "")
+				.trim();
 		}
 
-		carregarVozes();
-		speechSynthesis.onvoiceschanged = carregarVozes;
-
-		function escolherVoz() {
-			carregarVozes();
-
-			let voz = voices.find(
-				v => v.lang.toLowerCase() === "pt-br"
-			);
-
-			if (!voz) {
-				voz = voices.find(
-					v => v.lang.toLowerCase().startsWith("pt")
-				);
+		function falar(texto, depois) {
+			if (!("speechSynthesis" in window)) {
+				if (depois) depois();
+				return;
 			}
 
-			return voz;
-		}
+			falando = true;
 
-		function falar(texto) {
-			if (!window.speechSynthesis) return;
+			if (recognition && ouvindo) {
+				try {
+					recognition.stop();
+				} catch (e) {}
+			}
+
+			clearTimeout(timerReinicio);
 
 			speechSynthesis.cancel();
 
 			const fala = new SpeechSynthesisUtterance(texto);
-			const voz = escolherVoz();
-
-			if (voz) {
-				fala.voice = voz;
-			}
 
 			fala.lang = "pt-BR";
-			fala.rate = .88;
-			fala.pitch = .72;
+			fala.rate = 1;
+			fala.pitch = 1;
 			fala.volume = 1;
+
+			fala.onstart = () => {
+				systemStatus.textContent = "SPEAKING";
+				voiceState.textContent = "SPEAKING";
+			};
+
+			fala.onend = () => {
+				falando = false;
+
+				if (depois) depois();
+
+				if (ouvindo) {
+					systemStatus.textContent = "LISTENING";
+					voiceState.textContent = "ONLINE";
+					reiniciarReconhecimento();
+				}
+			};
+
+			fala.onerror = () => {
+				falando = false;
+
+				if (depois) depois();
+
+				if (ouvindo) {
+					reiniciarReconhecimento();
+				}
+			};
 
 			speechSynthesis.speak(fala);
 		}
@@ -548,12 +572,43 @@
 			falar(texto);
 		}
 
-		function normalizar(texto) {
-			return texto
-				.toLowerCase()
-				.normalize("NFD")
-				.replace(/[\u0300-\u036f]/g, "")
-				.trim();
+		function reiniciarReconhecimento() {
+			if (!ouvindo || falando || iniciando) return;
+
+			clearTimeout(timerReinicio);
+
+			timerReinicio = setTimeout(() => {
+				if (!ouvindo || falando || iniciando) return;
+
+				iniciarReconhecimento();
+			}, 900);
+		}
+
+		function iniciarReconhecimento() {
+			if (!recognition || !ouvindo || falando || iniciando) {
+				return;
+			}
+
+			iniciando = true;
+
+			try {
+				recognition.start();
+			} catch (e) {
+				iniciando = false;
+				reiniciarReconhecimento();
+			}
+		}
+
+		function pararReconhecimento() {
+			clearTimeout(timerReinicio);
+
+			if (!recognition) return;
+
+			try {
+				recognition.stop();
+			} catch (e) {}
+
+			iniciando = false;
 		}
 
 		function processarDialogo(comando) {
@@ -659,325 +714,29 @@
 				return true;
 			}
 
-			if (
-				texto.includes("fique ai") ||
-				texto.includes("fica ai")
-			) {
-				responder("Continuarei aguardando.");
-				return true;
-			}
-
-			if (
-				texto.includes("espere") ||
-				texto.includes("aguarde")
-			) {
-				responder("Certo. Ficarei em espera.");
-				return true;
-			}
-
 			return false;
 		}
 
-		function agendarReconexao() {
-			if (!ouvindo || reiniciando) return;
-
-			clearTimeout(timerReconexao);
-
-			timerReconexao = setTimeout(
-				iniciarReconhecimento,
-				700
-			);
-		}
-
-		function iniciarReconhecimento() {
-			if (!recognition || !ouvindo || reiniciando) {
-				return;
-			}
-
-			reiniciando = true;
-
-			try {
-				recognition.start();
-			} catch (e) {
-				reiniciando = false;
-				agendarReconexao();
-			}
-		}
-
-		const SpeechRecognition =
-			window.SpeechRecognition ||
-			window.webkitSpeechRecognition;
-
-		if (SpeechRecognition) {
-			recognition = new SpeechRecognition();
-
-			recognition.lang = "pt-BR";
-			recognition.continuous = true;
-			recognition.interimResults = false;
-			recognition.maxAlternatives = 1;
-
-			recognition.onstart = () => {
-				reiniciando = false;
-
-				voiceState.textContent = "ONLINE";
-				systemStatus.textContent = "LISTENING";
-
-				micButton.textContent = "[ PARAR SISTEMA ]";
-				micButton.classList.add("active");
-
-				status.textContent =
-					'Estou ouvindo. Diga "Atlas"...';
-			};
-
-			recognition.onresult = event => {
-				const resultado =
-					event.results[event.results.length - 1];
-
-				const original =
-					resultado[0].transcript.trim();
-
-				const texto = normalizar(original);
-
-				commandText.textContent = original;
-
-				if (
-					texto.includes("atlas acorda bebe") ||
-					texto.includes("atlas acorda")
-				) {
-					executarAcorda();
-					return;
-				}
-
-				if (!texto.includes("atlas")) {
-					return;
-				}
-
-				const comando =
-					texto.replace(/\batlas\b/g, "").trim();
-
-				if (!comando) {
-					responder(resposta(dialogos.presente));
-					return;
-				}
-
-				executarComando(comando);
-			};
-
-			recognition.onerror = event => {
-				if (event.error === "not-allowed") {
-					ouvindo = false;
-
-					voiceState.textContent = "BLOCKED";
-					systemStatus.textContent = "MIC BLOCKED";
-
-					status.textContent =
-						"Permita o acesso ao microfone para usar o ATLAS.";
-
-					micButton.textContent =
-						"[ INICIAR SISTEMA ]";
-
-					micButton.classList.remove("active");
-
-					return;
-				}
-
-				if (ouvindo) {
-					agendarReconexao();
-				}
-			};
-
-			recognition.onend = () => {
-				reiniciando = false;
-
-				if (ouvindo) {
-					agendarReconexao();
-				} else {
-					voiceState.textContent = "OFFLINE";
-					systemStatus.textContent = "STANDBY";
-
-					micButton.textContent =
-						"[ INICIAR SISTEMA ]";
-
-					micButton.classList.remove("active");
-				}
-			};
-		}
-
-		micButton.onclick = () => {
-			if (!recognition) {
-				status.textContent =
-					"Seu navegador não suporta reconhecimento de voz.";
-				return;
-			}
-
-			if (ouvindo) {
-				ouvindo = false;
-
-				clearTimeout(timerReconexao);
-
-				try {
-					recognition.stop();
-				} catch (e) {}
-
-				micButton.textContent =
-					"[ INICIAR SISTEMA ]";
-
-				micButton.classList.remove("active");
-
-				voiceState.textContent = "OFFLINE";
-				systemStatus.textContent = "STANDBY";
-
-				status.textContent =
-					"Sistema em espera.";
-
-				return;
-			}
-
-			ouvindo = true;
-
-			micButton.textContent =
-				"[ PARAR SISTEMA ]";
-
-			micButton.classList.add("active");
-
-			status.textContent =
-				"Inicializando sistema de voz...";
-
-			iniciarReconhecimento();
-		};
-
-		function abrirDestino(nome, url, novaAba) {
-			const frases = {
-				"ChatGPT": [
-					"Abrindo o ChatGPT.",
-					"ChatGPT a caminho.",
-					"Iniciando o ChatGPT."
-				],
-
-				"YouTube": [
-					"Abrindo o YouTube.",
-					"YouTube iniciado.",
-					"Abrindo sua central de vídeos."
-				],
-
-				"VS Code": [
-					"Abrindo o VS Code.",
-					"Ambiente de desenvolvimento iniciando.",
-					"VS Code online."
-				],
-
-				"Modelador": [
-					"Abrindo o modelador.",
-					"Ambiente CAD iniciando.",
-					"Abrindo seu espaço de modelagem."
-				],
-
-				"Gemini": [
-					"Abrindo o Gemini.",
-					"Iniciando o Gemini.",
-					"Gemini online."
-				],
-
-				"Editor": [
-					"Abrindo o editor.",
-					"Editor de vídeo iniciando.",
-					"Abrindo seu ambiente de edição."
-				],
-
-				"Documentos": [
-					"Abrindo os documentos.",
-					"Google Documentos iniciando.",
-					"Abrindo seu editor de documentos."
-				],
-
-				"Planilhas": [
-					"Abrindo as planilhas.",
-					"Google Planilhas iniciando.",
-					"Abrindo seu ambiente de planilhas."
-				],
-
-				"Apresentações": [
-					"Abrindo as apresentações.",
-					"Google Apresentações iniciando.",
-					"Abrindo seu ambiente de apresentações."
-				],
-
-				"Ferrugem": [
-					"Abrindo o Rust Playground.",
-					"Ambiente Rust iniciando.",
-					"Abrindo o playground de Ferrugem."
-				],
-
-				"Repositório": [
-					"Abrindo o repositório.",
-					"Repositório online.",
-					"Abrindo seu ambiente de código."
-				],
-
-				"Gmail": [
-					"Abrindo o Gmail.",
-					"Caixa de entrada iniciando."
-				],
-
-				"Drive": [
-					"Abrindo o Google Drive.",
-					"Drive online."
-				],
-
-				"Canva": [
-					"Abrindo o Canva.",
-					"Canva iniciado."
-				],
-
-				"Google": [
-					"Abrindo o Google.",
-					"Pesquisa online."
-				]
-			};
-
-			responder(
-				resposta(
-					frases[nome] || [
-						"Executando.",
-						"Certo.",
-						"Comando confirmado."
-					]
-				)
-			);
-
-			setTimeout(() => {
-				if (novaAba) {
-					window.open(url, "_blank");
-				} else {
-					abrirJanela(nome, url);
-				}
-			}, 400);
-		}
-
 		function abrirJanela(nome, url) {
-			const largura =
-				Math.min(
-					1200,
-					screen.availWidth - 80
-				);
+			const largura = Math.min(
+				1200,
+				screen.availWidth - 80
+			);
 
-			const altura =
-				Math.min(
-					800,
-					screen.availHeight - 80
-				);
+			const altura = Math.min(
+				800,
+				screen.availHeight - 80
+			);
 
-			const esquerda =
-				Math.max(
-					0,
-					(screen.availWidth - largura) / 2
-				);
+			const esquerda = Math.max(
+				0,
+				(screen.availWidth - largura) / 2
+			);
 
-			const topo =
-				Math.max(
-					0,
-					(screen.availHeight - altura) / 2
-				);
+			const topo = Math.max(
+				0,
+				(screen.availHeight - altura) / 2
+			);
 
 			const janela = window.open(
 				url,
@@ -990,6 +749,42 @@
 					janela.focus();
 				} catch (e) {}
 			}
+		}
+
+		function abrirDestino(nome, url, novaAba) {
+			const frases = {
+				"ChatGPT": "Abrindo o ChatGPT.",
+				"YouTube": "Abrindo o YouTube.",
+				"Code": "Abrindo o Code.",
+				"Modelador": "Abrindo o modelador.",
+				"Gemini": "Abrindo o Gemini.",
+				"Editor": "Abrindo o editor.",
+				"Documentos": "Abrindo os documentos.",
+				"Planilhas": "Abrindo as planilhas.",
+				"Apresentações": "Abrindo as apresentações.",
+				"Ferrugem": "Abrindo o Rust Playground.",
+				"Repositório": "Abrindo o repositório.",
+				"Gmail": "Abrindo o Gmail.",
+				"Drive": "Abrindo o Google Drive.",
+				"Canva": "Abrindo o Canva.",
+				"Google": "Abrindo o Google."
+			};
+
+			const mensagem =
+				frases[nome] || "Executando.";
+
+			status.textContent = mensagem;
+			commandText.textContent = mensagem;
+
+			falar(mensagem, () => {
+				setTimeout(() => {
+					if (novaAba) {
+						window.open(url, "_blank");
+					} else {
+						abrirJanela(nome, url);
+					}
+				}, 100);
+			});
 		}
 
 		function executarAcorda() {
@@ -1006,37 +801,49 @@
 			systemStatus.textContent =
 				"AWAKENING";
 
-			falar(resposta(dialogos.acordar));
+			falar(resposta(dialogos.acordar), () => {
+				setTimeout(() => {
+					abrirJanela(
+						"Code",
+						"https://vscode.dev/"
+					);
+				}, 300);
 
-			setTimeout(() => {
-				abrirJanela(
-					"VS Code",
-					"https://vscode.dev/",
-					false
-				);
-			}, 900);
+				setTimeout(() => {
+					abrirJanela(
+						"ChatGPT",
+						"https://chatgpt.com/"
+					);
+				}, 1200);
 
-			setTimeout(() => {
-				abrirJanela(
-					"ChatGPT",
-					"https://chatgpt.com/",
-					false
-				);
-			}, 2500);
+				setTimeout(() => {
+					status.textContent =
+						"Ambiente pronto.";
 
-			setTimeout(() => {
-				status.textContent =
-					"Ambiente pronto.";
+					systemStatus.textContent =
+						"LISTENING";
 
-				systemStatus.textContent =
-					"ONLINE";
-
-				acordando = false;
-			}, 4200);
+					acordando = false;
+				}, 1800);
+			});
 		}
 
 		function executarComando(comando) {
 			comando = normalizar(comando);
+
+			if (!comando) return;
+
+			const agora = Date.now();
+
+			if (
+				comando === ultimoComando &&
+				agora - ultimoTempo < 2500
+			) {
+				return;
+			}
+
+			ultimoComando = comando;
+			ultimoTempo = agora;
 
 			if (processarDialogo(comando)) {
 				return;
@@ -1094,11 +901,11 @@
 			}
 
 			if (
-				comando.includes("vs code") ||
-				comando.includes("vscode")
+				comando === "code" ||
+				comando.includes("code")
 			) {
 				abrirDestino(
-					"VS Code",
+					"Code",
 					"https://vscode.dev/",
 					novaAba
 				);
@@ -1233,11 +1040,191 @@
 					"Não reconheci esse comando.",
 					"Não tenho uma ação associada a isso.",
 					"Pode reformular o comando?",
-					"Não entendi completamente.",
-					"Essa solicitação não está entre minhas funções."
+					"Não entendi completamente."
 				])
 			);
 		}
+
+		if (SpeechRecognition) {
+			recognition = new SpeechRecognition();
+
+			recognition.lang = "pt-BR";
+			recognition.continuous = true;
+			recognition.interimResults = false;
+			recognition.maxAlternatives = 1;
+
+			recognition.onstart = () => {
+				iniciando = false;
+				esperandoReinicio = false;
+
+				voiceState.textContent = "ONLINE";
+				systemStatus.textContent = "LISTENING";
+
+				micButton.textContent =
+					"[ PARAR SISTEMA ]";
+
+				micButton.classList.add("active");
+
+				status.textContent =
+					'Estou ouvindo. Diga "Atlas"...';
+			};
+
+			recognition.onresult = event => {
+				if (falando || !ouvindo) return;
+
+				const resultado =
+					event.results[event.results.length - 1];
+
+				if (!resultado || !resultado[0]) {
+					return;
+				}
+
+				const original =
+					resultado[0].transcript.trim();
+
+				const texto = normalizar(original);
+
+				if (!texto) return;
+
+				commandText.textContent = original;
+
+				if (
+					texto.includes("atlas acorda bebe") ||
+					texto.includes("atlas acorda")
+				) {
+					executarAcorda();
+					return;
+				}
+
+				if (!texto.includes("atlas")) {
+					return;
+				}
+
+				const comando =
+					texto.replace(/\batlas\b/g, "").trim();
+
+				if (!comando) {
+					responder(resposta(dialogos.presente));
+					return;
+				}
+
+				executarComando(comando);
+			};
+
+			recognition.onerror = event => {
+				iniciando = false;
+
+				if (event.error === "not-allowed") {
+					ouvindo = false;
+
+					voiceState.textContent = "BLOCKED";
+					systemStatus.textContent = "MIC BLOCKED";
+
+					status.textContent =
+						"Permita o acesso ao microfone para usar o ATLAS.";
+
+					micButton.textContent =
+						"[ INICIAR SISTEMA ]";
+
+					micButton.classList.remove("active");
+
+					return;
+				}
+
+				if (event.error === "aborted") {
+					if (ouvindo && !falando) {
+						reiniciarReconhecimento();
+					}
+
+					return;
+				}
+
+				if (ouvindo && !falando) {
+					reiniciarReconhecimento();
+				}
+			};
+
+			recognition.onend = () => {
+				iniciando = false;
+
+				if (ouvindo && !falando) {
+					reiniciarReconhecimento();
+					return;
+				}
+
+				if (!ouvindo) {
+					voiceState.textContent = "OFFLINE";
+					systemStatus.textContent = "STANDBY";
+
+					micButton.textContent =
+						"[ INICIAR SISTEMA ]";
+
+					micButton.classList.remove("active");
+				}
+			};
+		}
+
+		function ativarSistema() {
+			if (!recognition) {
+				status.textContent =
+					"Seu navegador não suporta reconhecimento de voz.";
+
+				systemStatus.textContent =
+					"VOICE ERROR";
+
+				return;
+			}
+
+			if (ouvindo) return;
+
+			ouvindo = true;
+
+			micButton.textContent =
+				"[ PARAR SISTEMA ]";
+
+			micButton.classList.add("active");
+
+			voiceState.textContent = "STARTING";
+			systemStatus.textContent = "STARTING";
+
+			status.textContent =
+				"Inicializando sistema de voz...";
+
+			iniciarReconhecimento();
+		}
+
+		function desativarSistema() {
+			ouvindo = false;
+
+			clearTimeout(timerReinicio);
+
+			if ("speechSynthesis" in window) {
+				speechSynthesis.cancel();
+			}
+
+			falando = false;
+
+			pararReconhecimento();
+
+			voiceState.textContent = "OFFLINE";
+			systemStatus.textContent = "STANDBY";
+
+			micButton.textContent =
+				"[ INICIAR SISTEMA ]";
+
+			micButton.classList.remove("active");
+
+			status.textContent =
+				"Sistema em espera.";
+		}
+
+		micButton.onclick = () => {
+			if (ouvindo) {
+				desativarSistema();
+			} else {
+				ativarSistema();
+			}
+		};
 
 		function executarInput() {
 			const texto = commandInput.value.trim();
@@ -1268,11 +1255,29 @@
 			}
 		};
 
+		document.addEventListener("visibilitychange", () => {
+			if (
+				document.visibilityState === "visible" &&
+				ouvindo &&
+				!falando
+			) {
+				reiniciarReconhecimento();
+			}
+		});
+
 		window.addEventListener("beforeunload", () => {
-			if (recognition && ouvindo) {
+			ouvindo = false;
+
+			clearTimeout(timerReinicio);
+
+			if (recognition) {
 				try {
 					recognition.stop();
 				} catch (e) {}
+			}
+
+			if ("speechSynthesis" in window) {
+				speechSynthesis.cancel();
 			}
 		});
 
@@ -1288,21 +1293,8 @@
 					return;
 				}
 
-				ouvindo = true;
-
-				micButton.textContent =
-					"[ PARAR SISTEMA ]";
-
-				micButton.classList.add("active");
-
-				status.textContent =
-					'Estou ouvindo. Diga "Atlas"...';
-
-				systemStatus.textContent =
-					"STARTING";
-
-				iniciarReconhecimento();
-			}, 700);
+				ativarSistema();
+			}, 800);
 		});
 	</script>
 </body>
