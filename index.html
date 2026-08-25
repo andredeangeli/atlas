@@ -289,6 +289,7 @@
 			from {
 				transform: rotate(0);
 			}
+
 			to {
 				transform: rotate(360deg);
 			}
@@ -298,6 +299,7 @@
 			from {
 				transform: rotate(360deg);
 			}
+
 			to {
 				transform: rotate(0);
 			}
@@ -307,6 +309,7 @@
 			0%, 100% {
 				transform: scale(1);
 			}
+
 			50% {
 				transform: scale(1.05);
 			}
@@ -405,7 +408,6 @@
 		const systemStatus = document.getElementById("systemStatus");
 		const voiceState = document.getElementById("voiceState");
 
-		let voices = [];
 		let recognition = null;
 		let ouvindo = false;
 		let reiniciando = false;
@@ -499,44 +501,16 @@
 			return lista[Math.floor(Math.random() * lista.length)];
 		}
 
-		function carregarVozes() {
-			voices = speechSynthesis.getVoices();
-		}
-
-		carregarVozes();
-		speechSynthesis.onvoiceschanged = carregarVozes;
-
-		function escolherVoz() {
-			carregarVozes();
-
-			let voz = voices.find(
-				v => v.lang.toLowerCase() === "pt-br"
-			);
-
-			if (!voz) {
-				voz = voices.find(
-					v => v.lang.toLowerCase().startsWith("pt")
-				);
-			}
-
-			return voz;
-		}
-
 		function falar(texto) {
-			if (!window.speechSynthesis) return;
+			if (!("speechSynthesis" in window)) return;
 
 			speechSynthesis.cancel();
 
 			const fala = new SpeechSynthesisUtterance(texto);
-			const voz = escolherVoz();
-
-			if (voz) {
-				fala.voice = voz;
-			}
 
 			fala.lang = "pt-BR";
-			fala.rate = .88;
-			fala.pitch = .72;
+			fala.rate = 1;
+			fala.pitch = 1;
 			fala.volume = 1;
 
 			speechSynthesis.speak(fala);
@@ -860,10 +834,10 @@
 					"Abrindo sua central de vídeos."
 				],
 
-				"VS Code": [
-					"Abrindo o VS Code.",
+				"Code": [
+					"Abrindo o Code.",
 					"Ambiente de desenvolvimento iniciando.",
-					"VS Code online."
+					"Code online."
 				],
 
 				"Modelador": [
@@ -1010,7 +984,7 @@
 
 			setTimeout(() => {
 				abrirJanela(
-					"VS Code",
+					"Code",
 					"https://vscode.dev/",
 					false
 				);
@@ -1094,11 +1068,11 @@
 			}
 
 			if (
-				comando.includes("vs code") ||
-				comando.includes("vscode")
+				comando === "code" ||
+				comando.includes("code")
 			) {
 				abrirDestino(
-					"VS Code",
+					"Code",
 					"https://vscode.dev/",
 					novaAba
 				);
