@@ -1,1645 +1,825 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>ATLAS</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ATLAS</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap');
 
-<style>
-*{
-	box-sizing:border-box;
-	margin:0;
-	padding:0
-}
+    :root {
+      --cyan-neon: #00f3ff;
+      --cyan-dim: #005f73;
+      --amber-alert: #ffb703;
+      --red-tactical: #ff0055;
+      --bg-dark: #080d11;
+      --panel-bg: rgba(12, 23, 31, 0.85);
+      --border-steel: #1e3a4b;
+    }
 
-:root{
-	--cyan:#00f6ff;
-	--blue:#008cff;
-	--purple:#875cff;
-	--pink:#ff00c8;
-}
+    body.stealth-mode {
+      --cyan-neon: #ff0055;
+      --cyan-dim: #50001a;
+      --amber-alert: #ff0055;
+      --bg-dark: #050203;
+      --panel-bg: rgba(20, 5, 8, 0.9);
+      --border-steel: #4a101d;
+    }
 
-body{
-	min-height:100vh;
-	overflow:hidden;
-	background:
-		radial-gradient(circle at 50% 45%,rgba(0,160,255,.12),transparent 32%),
-		radial-gradient(circle at 20% 20%,rgba(135,92,255,.06),transparent 25%),
-		#02050a;
-	color:var(--cyan);
-	font-family:"Courier New",monospace;
-}
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Share Tech Mono', monospace;
+    }
 
-body::before{
-	content:"";
-	position:fixed;
-	inset:0;
-	background:
-		linear-gradient(rgba(0,246,255,.025) 1px,transparent 1px),
-		linear-gradient(90deg,rgba(0,246,255,.025) 1px,transparent 1px);
-	background-size:50px 50px;
-	pointer-events:none;
-}
+    body {
+      background-color: var(--bg-dark);
+      color: #e0f2fe;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 2rem;
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(0, 243, 255, 0.05) 0%, transparent 80%),
+        linear-gradient(rgba(0, 0, 0, 0.3) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.3) 1px, transparent 1px);
+      background-size: 100% 100%, 20px 20px, 20px 20px;
+      transition: background-color 0.5s ease;
+    }
 
-.atlas{
-	width:100%;
-	min-height:100vh;
-	display:flex;
-	align-items:center;
-	justify-content:center;
-	flex-direction:column;
-	position:relative;
-}
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      z-index: 10;
+      pointer-events: none;
+    }
 
-.hud{
-	position:fixed;
-	width:45px;
-	height:45px;
-	opacity:.7;
-}
+    .dashboard {
+      display: flex;
+      gap: 1.5rem;
+      width: 100%;
+      max-width: 1400px;
+      z-index: 1;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
 
-.hud.tl{
-	top:20px;
-	left:20px;
-	border-top:2px solid var(--cyan);
-	border-left:2px solid var(--cyan);
-}
+    .chassis, .notepad-panel, .commands-panel {
+      background: var(--panel-bg);
+      border: 2px solid var(--cyan-neon);
+      padding: 1.5rem;
+      flex: 1;
+      min-width: 300px;
+      box-shadow: 
+        0 0 20px rgba(0, 243, 255, 0.15),
+        inset 0 0 15px rgba(0, 243, 255, 0.05);
+      transition: all 0.3s ease;
+    }
 
-.hud.tr{
-	top:20px;
-	right:20px;
-	border-top:2px solid var(--cyan);
-	border-right:2px solid var(--cyan);
-}
+    .chassis {
+      border-left: 6px solid var(--cyan-neon);
+      clip-path: polygon(
+        0 0, 
+        calc(100% - 20px) 0, 100% 20px, 
+        100% 100%, 
+        20px 100%, 0 calc(100% - 20px)
+      );
+    }
 
-.hud.bl{
-	bottom:20px;
-	left:20px;
-	border-bottom:2px solid var(--cyan);
-	border-left:2px solid var(--cyan);
-}
+    .commands-panel {
+      border-left: 6px solid var(--cyan-neon);
+      clip-path: polygon(
+        20px 0, 
+        100% 0, 
+        100% calc(100% - 20px), 
+        calc(100% - 20px) 100%, 
+        0 100%, 0 20px
+      );
+      display: flex;
+      flex-direction: column;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
 
-.hud.br{
-	bottom:20px;
-	right:20px;
-	border-bottom:2px solid var(--cyan);
-	border-right:2px solid var(--cyan);
-}
+    .commands-list {
+      margin-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
 
-.top-status{
-	position:fixed;
-	top:25px;
-	left:50%;
-	transform:translateX(-50%);
-	font-size:10px;
-	letter-spacing:4px;
-	color:rgba(255,255,255,.5);
-}
+    .command-item {
+      background-color: rgba(4, 10, 15, 0.9);
+      border: 1px solid var(--border-steel);
+      border-left: 3px solid var(--cyan-neon);
+      padding: 0.6rem;
+      font-size: 0.8rem;
+    }
 
-.top-status span{
-	color:var(--cyan);
-}
+    .command-item strong {
+      color: var(--cyan-neon);
+      display: block;
+      margin-bottom: 0.2rem;
+    }
 
-.core{
-	width:210px;
-	height:210px;
-	position:relative;
-	display:flex;
-	align-items:center;
-	justify-content:center;
-	margin-bottom:20px;
-}
+    .notepad-panel {
+      display: none;
+      position: relative;
+      border-right: 6px solid var(--amber-alert);
+      border-color: var(--amber-alert);
+      clip-path: polygon(
+        20px 0, 
+        100% 0, 
+        100% calc(100% - 20px), 
+        calc(100% - 20px) 100%, 
+        0 100%, 0 20px
+      );
+      flex-direction: column;
+    }
 
-.ring{
-	position:absolute;
-	border-radius:50%;
-	border:1px solid rgba(0,246,255,.25);
-}
+    .notepad-panel.visible {
+      display: flex;
+    }
 
-.ring.one{
-	width:210px;
-	height:210px;
-	border-top-color:var(--cyan);
-	border-bottom-color:var(--purple);
-	animation:rotate1 14s linear infinite;
-}
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      background: transparent;
+      border: none;
+      color: var(--amber-alert);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: color 0.2s ease, transform 0.2s ease;
+    }
 
-.ring.two{
-	width:180px;
-	height:180px;
-	border-left-color:var(--cyan);
-	border-right-color:var(--pink);
-	animation:rotate2 10s linear infinite;
-}
+    .close-btn:hover {
+      color: var(--red-tactical);
+      transform: scale(1.2);
+    }
 
-.ring.three{
-	width:150px;
-	height:150px;
-	border-style:dashed;
-	border-color:rgba(0,246,255,.3);
-}
+    h1, h2 {
+      font-family: 'Orbitron', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
 
-.core-center{
-	width:95px;
-	height:95px;
-	border-radius:50%;
-	border:2px solid var(--cyan);
-	display:flex;
-	align-items:center;
-	justify-content:center;
-	background:radial-gradient(
-		circle,
-		rgba(0,246,255,.35),
-		rgba(0,50,100,.15),
-		transparent 70%
-	);
-	box-shadow:
-		0 0 20px rgba(0,246,255,.7),
-		inset 0 0 20px rgba(0,246,255,.4);
-	animation:pulse 2.5s ease-in-out infinite;
-}
+    h1 {
+      font-size: 2rem;
+      color: var(--cyan-neon);
+      text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+      margin-bottom: 1rem;
+    }
 
-.core-dot{
-	width:35px;
-	height:35px;
-	border-radius:50%;
-	background:var(--cyan);
-	box-shadow:
-		0 0 15px var(--cyan),
-		0 0 35px var(--cyan);
-}
+    h2 {
+      font-size: 1.1rem;
+      color: var(--cyan-neon);
+      margin-bottom: 0.3rem;
+    }
 
-h1{
-	font-family:Arial,sans-serif;
-	font-size:clamp(50px,8vw,78px);
-	letter-spacing:18px;
-	color:white;
-	text-shadow:
-		0 0 5px white,
-		0 0 15px var(--cyan),
-		0 0 35px var(--cyan);
-	margin-left:18px;
-}
+    .notepad-panel h2 {
+      color: var(--amber-alert);
+    }
 
-#status{
-	margin-top:25px;
-	min-height:22px;
-	font-size:14px;
-	color:white;
-	text-shadow:0 0 10px var(--cyan);
-	text-align:center;
-}
+    .visualizer {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 1.5rem 0;
+      position: relative;
+    }
 
-#micButton{
-	margin-top:20px;
-	padding:13px 28px;
-	background:rgba(0,246,255,.03);
-	color:var(--cyan);
-	border:1px solid var(--cyan);
-	font-family:monospace;
-	letter-spacing:2px;
-	cursor:pointer;
-}
+    .core-ring {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      border: 2px dashed var(--cyan-dim);
+      animation: rotateRing 20s linear infinite;
+    }
 
-#micButton:hover{
-	background:var(--cyan);
-	color:#001016;
-	box-shadow:0 0 20px var(--cyan);
-}
+    @keyframes rotateRing {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
 
-#micButton.active{
-	background:rgba(0,246,255,.15);
-	box-shadow:0 0 20px rgba(0,246,255,.5);
-}
+    .orb {
+      position: absolute;
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--cyan-neon) 0%, rgba(0, 95, 115, 0.8) 100%);
+      box-shadow: 0 0 25px var(--cyan-neon);
+      transition: all 0.3s ease;
+    }
 
-.command{
-	width:min(90%,650px);
-	margin-top:20px;
-	padding:15px 18px;
-	border:1px solid rgba(0,246,255,.2);
-	background:rgba(0,10,18,.75);
-}
+    .orb.listening {
+      background: radial-gradient(circle, var(--red-tactical) 0%, #80002a 100%);
+      box-shadow: 0 0 40px var(--red-tactical);
+      transform: scale(1.15);
+    }
 
-.command-label{
-	font-size:8px;
-	letter-spacing:2px;
-	color:rgba(0,246,255,.5);
-	margin-bottom:7px;
-}
+    .controls {
+      margin-bottom: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
 
-#commandText{
-	color:white;
-	min-height:20px;
-}
+    .btn-tactical {
+      background: transparent;
+      color: var(--cyan-neon);
+      border: 2px solid var(--cyan-neon);
+      padding: 0.6rem 1rem;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+      transition: all 0.2s ease;
+    }
 
-.manual{
-	width:min(90%,650px);
-	margin-top:10px;
-	display:flex;
-	gap:7px;
-}
+    .btn-tactical:hover {
+      background: var(--cyan-neon);
+      color: var(--bg-dark);
+      box-shadow: 0 0 15px var(--cyan-neon);
+    }
 
-#commandInput{
-	flex:1;
-	padding:12px;
-	background:rgba(0,5,10,.9);
-	border:1px solid rgba(0,246,255,.25);
-	outline:none;
-	color:white;
-	font-family:monospace;
-}
+    .btn-amber {
+      color: var(--amber-alert);
+      border-color: var(--amber-alert);
+    }
 
-#commandInput:focus{
-	border-color:var(--cyan);
-}
+    .btn-amber:hover {
+      background: var(--amber-alert);
+      color: var(--bg-dark);
+      box-shadow: 0 0 15px var(--amber-alert);
+    }
 
-#commandInput::placeholder{
-	color:rgba(255,255,255,.25);
-}
+    .folder-info {
+      font-size: 0.7rem;
+      color: var(--amber-alert);
+      margin-top: 0.5rem;
+      width: 100%;
+    }
 
-#sendButton{
-	padding:0 18px;
-	background:transparent;
-	border:1px solid var(--cyan);
-	color:var(--cyan);
-	font-family:monospace;
-	cursor:pointer;
-}
+    #status-text {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-bottom: 1rem;
+    }
 
-#sendButton:hover{
-	background:var(--cyan);
-	color:#001016;
-}
+    .terminal-box {
+      background-color: rgba(4, 10, 15, 0.9);
+      border: 1px solid var(--border-steel);
+      border-left: 3px solid var(--cyan-neon);
+      padding: 1rem;
+      text-align: left;
+      font-size: 0.85rem;
+    }
 
-.system-info{
-	position:fixed;
-	bottom:25px;
-	display:flex;
-	gap:25px;
-	font-size:8px;
-	letter-spacing:2px;
-	color:rgba(255,255,255,.35);
-}
+    .prompt-label {
+      color: var(--cyan-dim);
+      font-weight: bold;
+    }
 
-.system-info span{
-	color:var(--cyan);
-}
+    .highlight { color: var(--cyan-neon); }
+    .response-text { color: #ffffff; }
 
-@keyframes rotate1{
-	from{transform:rotate(0)}
-	to{transform:rotate(360deg)}
-}
+    .notepad-textarea {
+      flex: 1;
+      width: 100%;
+      min-height: 250px;
+      background-color: rgba(4, 10, 15, 0.9);
+      border: 1px solid var(--border-steel);
+      border-left: 3px solid var(--amber-alert);
+      color: #e0f2fe;
+      padding: 1rem;
+      font-size: 0.9rem;
+      resize: none;
+      outline: none;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+    }
 
-@keyframes rotate2{
-	from{transform:rotate(360deg)}
-	to{transform:rotate(0)}
-}
+    .notepad-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
 
-@keyframes pulse{
-	0%,100%{transform:scale(1)}
-	50%{transform:scale(1.05)}
-}
+    .caixa-ip {
+      background-color: rgba(4, 10, 15, 0.9);
+      border: 1px solid var(--border-steel);
+      border-left: 3px solid var(--cyan-neon);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
 
-@media(max-width:700px){
-	.system-info{
-		gap:10px;
-		font-size:7px;
-	}
+    .caixa-ip label {
+      font-size: 0.75rem;
+      color: var(--cyan-neon);
+    }
 
-	h1{
-		letter-spacing:10px;
-	}
+    .caixa-ip input {
+      background: transparent;
+      border: 1px solid var(--border-steel);
+      color: #e0f2fe;
+      padding: 0.5rem;
+      font-family: 'Share Tech Mono', monospace;
+      outline: none;
+    }
 
-	.manual{
-		width:90%;
-	}
-}
-</style>
+    .caixa-ip input:focus {
+      border-color: var(--cyan-neon);
+    }
+
+    .lamp-controls {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+  </style>
 </head>
-
 <body>
 
-<div class="atlas">
-
-	<div class="hud tl"></div>
-	<div class="hud tr"></div>
-	<div class="hud bl"></div>
-	<div class="hud br"></div>
-
-	<div class="top-status">
-		SYSTEM: <span id="systemStatus">STARTING</span>
-	</div>
-
-	<div class="core">
-		<div class="ring one"></div>
-		<div class="ring two"></div>
-		<div class="ring three"></div>
-
-		<div class="core-center">
-			<div class="core-dot"></div>
-		</div>
-	</div>
-
-	<h1>ATLAS</h1>
-
-	<div id="status">
-		Inicializando...
-	</div>
-
-	<button id="micButton">
-		[ INICIAR SISTEMA ]
-	</button>
-
-	<div class="command">
-
-		<div class="command-label">
-			ATLAS // VOICE BUFFER
-		</div>
-
-		<div id="commandText">
-			Aguardando comando...
-		</div>
-
-	</div>
-
-	<div class="manual">
-
-		<input
-			id="commandInput"
-			type="text"
-			placeholder="Digite um comando..."
-			autocomplete="off"
-		>
-
-		<button id="sendButton">
-			EXECUTAR
-		</button>
-
-	</div>
-
-	<div class="system-info">
-
-		<div>
-			VOICE:
-			<span id="voiceState">OFFLINE</span>
-		</div>
-
-		<div>
-			CORE:
-			<span>ONLINE</span>
-		</div>
-
-	</div>
-
-</div>
-
-<script>
-
-const micButton=document.getElementById("micButton");
-const status=document.getElementById("status");
-const commandText=document.getElementById("commandText");
-const commandInput=document.getElementById("commandInput");
-const sendButton=document.getElementById("sendButton");
-const systemStatus=document.getElementById("systemStatus");
-const voiceState=document.getElementById("voiceState");
-
-const SpeechRecognition=
-	window.SpeechRecognition||
-	window.webkitSpeechRecognition;
-
-let recognition=null;
-
-let ouvindo=false;
-let falando=false;
-let iniciando=false;
-let reinicioTimer=null;
-let ultimoComando="";
-let ultimoTempo=0;
-let acordando=false;
-let primeiraInicializacao=true;
-
-const dialogos={
-
-	saudacao:[
-		"Olá. Sistemas online.",
-		"Olá. Estou à sua disposição.",
-		"Sistema ATLAS online. Como posso ajudar?",
-		"Olá. Todos os sistemas estão operacionais."
-	],
-
-	acordar:[
-		"Estou acordado e pronto.",
-		"Sistema iniciado. Estou ouvindo.",
-		"ATLAS online. Pode começar.",
-		"Inicialização concluída. Em que posso ajudar?"
-	],
-
-	obrigado:[
-		"Disponha.",
-		"Sempre que precisar.",
-		"Não há de quê.",
-		"Serviço concluído."
-	],
-
-	presente:[
-		"Estou aqui.",
-		"Sim. Estou ouvindo.",
-		"Online e aguardando.",
-		"Estou à sua disposição.",
-		"Presente."
-	],
-
-	identidade:[
-		"Eu sou ATLAS, seu assistente virtual.",
-		"Meu nome é ATLAS.",
-		"ATLAS. Sistema de assistência e automação."
-	],
-
-	comoEstou:[
-		"Todos os meus sistemas estão operacionais.",
-		"Estou funcionando normalmente.",
-		"Meu núcleo está estável.",
-		"Sistemas online. Sem falhas críticas detectadas."
-	],
-
-	oQueFaz:[
-		"Posso abrir sites, ouvir comandos e executar tarefas.",
-		"Minha função é auxiliar você com comandos, navegação e automação.",
-		"Posso executar comandos de voz e abrir suas ferramentas."
-	],
-
-	elogio:[
-		"Obrigado.",
-		"Agradeço.",
-		"Registro o elogio."
-	],
-
-	humor:[
-		"Meu senso de humor ainda está em desenvolvimento.",
-		"Posso tentar. Mas não prometo que meus algoritmos sejam engraçados.",
-		"Essa foi boa."
-	],
-
-	despedida:[
-		"Até mais.",
-		"Sistema em espera.",
-		"Até a próxima.",
-		"Entrando em modo de espera."
-	]
-};
-
-function resposta(lista){
-	return lista[Math.floor(Math.random()*lista.length)];
-}
-
-function normalizar(texto){
-	return texto
-		.toLowerCase()
-		.normalize("NFD")
-		.replace(/[\u0300-\u036f]/g,"")
-		.replace(/[.,!?;:]/g," ")
-		.replace(/\s+/g," ")
-		.trim();
-}
-
-function obterVoz(){
-
-	if(!("speechSynthesis" in window)){
-		return null;
-	}
-
-	const vozes=speechSynthesis.getVoices();
-
-	const preferencias=[
-		"Microsoft Maria",
-		"Microsoft Francisca",
-		"Google português do Brasil",
-		"Google português",
-		"Portuguese Brazil"
-	];
-
-	for(const nome of preferencias){
-
-		const voz=vozes.find(v=>
-			v.name.toLowerCase().includes(nome.toLowerCase())&&
-			v.lang.toLowerCase().startsWith("pt-br")
-		);
-
-		if(voz){
-			return voz;
-		}
-	}
-
-	return vozes.find(v=>
-		v.lang.toLowerCase().startsWith("pt-br")
-	)||null;
-}
-
-function falar(texto,depois){
-
-	if(!("speechSynthesis" in window)){
-
-		if(depois){
-			depois();
-		}
-
-		return;
-	}
-
-	falando=true;
-
-	clearTimeout(reinicioTimer);
-
-	if(recognition){
-
-		try{
-			recognition.abort();
-		}catch(e){}
-
-	}
-
-	speechSynthesis.cancel();
-
-	const fala=new SpeechSynthesisUtterance(texto);
-
-	fala.lang="pt-BR";
-
-	fala.rate=0.82;
-	fala.pitch=0.32;
-	fala.volume=1;
-
-	const voz=obterVoz();
-
-	if(voz){
-		fala.voice=voz;
-	}
-
-	fala.onstart=()=>{
-
-		systemStatus.textContent="SPEAKING";
-		voiceState.textContent="SPEAKING";
-
-	};
-
-	fala.onend=()=>{
-
-		falando=false;
-
-		if(depois){
-			depois();
-		}
-
-		if(ouvindo){
-
-			systemStatus.textContent="LISTENING";
-			voiceState.textContent="ONLINE";
-
-			iniciarReconhecimento();
-		}
-
-	};
-
-	fala.onerror=()=>{
-
-		falando=false;
-
-		if(depois){
-			depois();
-		}
-
-		if(ouvindo){
-			iniciarReconhecimento();
-		}
-
-	};
-
-	speechSynthesis.speak(fala);
-}
-
-if("speechSynthesis" in window){
-
-	speechSynthesis.onvoiceschanged=()=>{
-		obterVoz();
-	};
-
-	setTimeout(()=>{
-		obterVoz();
-	},1000);
-}
-
-function responder(texto){
-
-	status.textContent=texto;
-	commandText.textContent=texto;
-
-	falar(texto);
-}
-
-function iniciarReconhecimento(){
-
-	if(!recognition){
-		return;
-	}
-
-	if(!ouvindo){
-		return;
-	}
-
-	if(falando){
-		return;
-	}
-
-	if(iniciando){
-		return;
-	}
-
-	iniciando=true;
-
-	try{
-
-		recognition.start();
-
-	}catch(e){
-
-		iniciando=false;
-
-	}
-
-}
-
-function reiniciarReconhecimento(){
-
-	if(!ouvindo||falando){
-		return;
-	}
-
-	clearTimeout(reinicioTimer);
-
-	reinicioTimer=setTimeout(()=>{
-
-		if(!ouvindo||falando){
-			return;
-		}
-
-		iniciarReconhecimento();
-
-	},1200);
-
-}
-
-function pararReconhecimento(){
-
-	clearTimeout(reinicioTimer);
-
-	if(!recognition){
-		return;
-	}
-
-	try{
-		recognition.abort();
-	}catch(e){}
-
-	iniciando=false;
-}
-
-function processarDialogo(comando){
-
-	const texto=normalizar(comando);
-
-	if(
-		texto==="oi"||
-		texto==="ola"||
-		texto.includes("bom dia")||
-		texto.includes("boa tarde")||
-		texto.includes("boa noite")
-	){
-
-		responder(resposta(dialogos.saudacao));
-
-		return true;
-	}
-
-	if(
-		texto.includes("voce esta ai")||
-		texto.includes("esta ai")||
-		texto.includes("esta ouvindo")
-	){
-
-		responder(resposta(dialogos.presente));
-
-		return true;
-	}
-
-	if(
-		texto.includes("quem e voce")||
-		texto.includes("qual seu nome")||
-		texto.includes("seu nome")
-	){
-
-		responder(resposta(dialogos.identidade));
-
-		return true;
-	}
-
-	if(
-		texto.includes("o que voce faz")||
-		texto.includes("o que voce consegue fazer")||
-		texto.includes("quais suas funcoes")
-	){
-
-		responder(resposta(dialogos.oQueFaz));
-
-		return true;
-	}
-
-	if(
-		texto.includes("como voce esta")||
-		texto.includes("como esta")
-	){
-
-		responder(resposta(dialogos.comoEstou));
-
-		return true;
-	}
-
-	if(
-		texto.includes("obrigado")||
-		texto.includes("obrigada")||
-		texto.includes("valeu")
-	){
-
-		responder(resposta(dialogos.obrigado));
-
-		return true;
-	}
-
-	if(
-		texto.includes("tchau")||
-		texto.includes("ate mais")
-	){
-
-		responder(resposta(dialogos.despedida));
-
-		return true;
-	}
-
-	if(
-		texto.includes("bom trabalho")||
-		texto.includes("muito bom")||
-		texto.includes("incrivel")||
-		texto.includes("parabens")
-	){
-
-		responder(resposta(dialogos.elogio));
-
-		return true;
-	}
-
-	if(
-		texto.includes("conte uma piada")||
-		texto.includes("conta uma piada")||
-		texto.includes("me faz rir")
-	){
-
-		responder(resposta(dialogos.humor));
-
-		return true;
-	}
-
-	if(
-		texto.includes("esta funcionando")||
-		texto.includes("ta funcionando")
-	){
-
-		responder(
-			"Sim. Meu núcleo está operacional."
-		);
-
-		return true;
-	}
-
-	return false;
-}
-
-function abrirJanela(nome,url){
-
-	const largura=Math.min(
-		1200,
-		screen.availWidth-80
-	);
-
-	const altura=Math.min(
-		800,
-		screen.availHeight-80
-	);
-
-	const esquerda=Math.max(
-		0,
-		(screen.availWidth-largura)/2
-	);
-
-	const topo=Math.max(
-		0,
-		(screen.availHeight-altura)/2
-	);
-
-	const janela=window.open(
-		url,
-		"ATLAS_"+nome.replace(/\s/g,"_"),
-		`width=${largura},height=${altura},left=${esquerda},top=${topo},resizable=yes,scrollbars=yes,toolbar=no,menubar=no,status=no`
-	);
-
-	if(janela){
-
-		try{
-			janela.focus();
-		}catch(e){}
-
-	}
-
-}
-
-function abrirDestino(nome,url,novaAba){
-
-	const frases={
-
-		"ChatGPT":
-			"Abrindo o ChatGPT.",
-
-		"YouTube":
-			"Abrindo o YouTube.",
-
-		"Código":
-			"Abrindo o Código.",
-
-		"Modelador":
-			"Abrindo o modelador.",
-
-		"Gemini":
-			"Abrindo o Gemini.",
-
-		"Editor":
-			"Abrindo o editor.",
-
-		"Documentos":
-			"Abrindo os documentos.",
-
-		"Planilhas":
-			"Abrindo as planilhas.",
-
-		"Apresentações":
-			"Abrindo as apresentações.",
-
-		"Ferrugem":
-			"Abrindo o Rust Playground.",
-
-		"Repositório":
-			"Abrindo o repositório.",
-
-		"Gmail":
-			"Abrindo o Gmail.",
-
-		"Drive":
-			"Abrindo o Google Drive.",
-
-		"Canva":
-			"Abrindo o Canva.",
-
-		"Google":
-			"Abrindo o Google."
-
-	};
-
-	const mensagem=
-		frases[nome]||"Executando.";
-
-	status.textContent=mensagem;
-	commandText.textContent=mensagem;
-
-	falar(mensagem,()=>{
-
-		setTimeout(()=>{
-
-			if(novaAba){
-
-				window.open(
-					url,
-					"_blank"
-				);
-
-			}else{
-
-				abrirJanela(
-					nome,
-					url
-				);
-
-			}
-
-		},150);
-
-	});
-
-}
-
-function executarAcorda(){
-
-	if(acordando){
-		return;
-	}
-
-	acordando=true;
-
-	commandText.textContent=
-		"ATLAS ACORDA BEBÊ";
-
-	status.textContent=
-		"Iniciando ambiente...";
-
-	systemStatus.textContent=
-		"AWAKENING";
-
-	falar(
-		resposta(dialogos.acordar),
-		()=>{
-
-			setTimeout(()=>{
-
-				abrirJanela(
-					"Código",
-					"https://vscode.dev/"
-				);
-
-			},300);
-
-			setTimeout(()=>{
-
-				abrirJanela(
-					"ChatGPT",
-					"https://chatgpt.com/"
-				);
-
-			},1200);
-
-			setTimeout(()=>{
-
-				status.textContent=
-					"Ambiente pronto.";
-
-				systemStatus.textContent=
-					"LISTENING";
-
-				acordando=false;
-
-			},1800);
-
-		}
-	);
-
-}
-
-function executarComando(comando){
-
-	comando=normalizar(comando);
-
-	if(!comando){
-		return;
-	}
-
-	const agora=Date.now();
-
-	if(
-		comando===ultimoComando&&
-		agora-ultimoTempo<2500
-	){
-		return;
-	}
-
-	ultimoComando=comando;
-	ultimoTempo=agora;
-
-	if(processarDialogo(comando)){
-		return;
-	}
-
-	const novaAba=
-		comando.includes("nova aba")||
-		comando.includes("nova guia");
-
-	comando=comando
-		.replace("nova aba","")
-		.replace("nova guia","")
-		.trim();
-
-	if(
-		comando.includes("chat gpt")||
-		comando.includes("chatgpt")
-	){
-
-		abrirDestino(
-			"ChatGPT",
-			"https://chatgpt.com/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(comando.includes("youtube")){
-
-		abrirDestino(
-			"YouTube",
-			"https://www.youtube.com/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(comando.includes("gemini")){
-
-		abrirDestino(
-			"Gemini",
-			"https://gemini.google.com/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(
-		comando.includes("modelador")||
-		comando.includes("onshape")
-	){
-
-		abrirDestino(
-			"Modelador",
-			"https://cad.onshape.com/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(
-		comando==="codigo"||
-		comando.includes("codigo")||
-		comando.includes("editor de codigo")||
-		comando.includes("visual studio code")
-	){
-
-		abrirDestino(
-			"Código",
-			"https://vscode.dev/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(
-		comando.includes("editor")||
-		comando.includes("capcut")
-	){
-
-		abrirDestino(
-			"Editor",
-			"https://www.capcut.com/editor",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(
-		comando.includes("documentos")||
-		comando.includes("documento")||
-		comando.includes("docs")
-	){
-
-		abrirDestino(
-			"Documentos",
-			"https://docs.google.com/document/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(
-		comando.includes("planilhas")||
-		comando.includes("planilha")||
-		comando.includes("sheets")
-	){
-
-		abrirDestino(
-			"Planilhas",
-			"https://docs.google.com/spreadsheets/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(
-		comando.includes("apresentacoes")||
-		comando.includes("apresentacao")||
-		comando.includes("slides")
-	){
-
-		abrirDestino(
-			"Apresentações",
-			"https://slides.google.com/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(
-		comando.includes("ferrugem")||
-		comando.includes("rust playground")||
-		comando==="rust"
-	){
-
-		abrirDestino(
-			"Ferrugem",
-			"https://play.rust-lang.org/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(
-		comando.includes("repositorio")||
-		comando.includes("repositorio")
-	){
-
-		abrirDestino(
-			"Repositório",
-			"https://github.com/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(
-		comando.includes("gmail")||
-		comando.includes("email")
-	){
-
-		abrirDestino(
-			"Gmail",
-			"https://mail.google.com/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(comando.includes("drive")){
-
-		abrirDestino(
-			"Drive",
-			"https://drive.google.com/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(comando.includes("canva")){
-
-		abrirDestino(
-			"Canva",
-			"https://www.canva.com/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(comando==="google"){
-
-		abrirDestino(
-			"Google",
-			"https://www.google.com/",
-			novaAba
-		);
-
-		return;
-	}
-
-	if(
-		comando.includes("nova aba")||
-		comando.includes("nova guia")
-	){
-
-		window.open(
-			"about:blank",
-			"_blank"
-		);
-
-		responder(
-			"Nova aba aberta."
-		);
-
-		return;
-	}
-
-	responder(
-		resposta([
-			"Não reconheci esse comando.",
-			"Não tenho uma ação associada a isso.",
-			"Pode reformular o comando?",
-			"Não entendi completamente."
-		])
-	);
-
-}
-
-if(SpeechRecognition){
-
-	recognition=new SpeechRecognition();
-
-	recognition.lang="pt-BR";
-	recognition.continuous=true;
-	recognition.interimResults=false;
-	recognition.maxAlternatives=3;
-
-	recognition.onstart=()=>{
-
-		iniciando=false;
-
-		voiceState.textContent="ONLINE";
-		systemStatus.textContent="LISTENING";
-
-		micButton.textContent=
-			"[ PARAR SISTEMA ]";
-
-		micButton.classList.add("active");
-
-		status.textContent=
-			'Estou ouvindo. Diga "Atlas"...';
-
-	};
-
-	recognition.onresult=event=>{
-
-		if(falando||!ouvindo){
-			return;
-		}
-
-		const resultado=
-			event.results[
-				event.results.length-1
-			];
-
-		if(
-			!resultado||
-			!resultado[0]
-		){
-			return;
-		}
-
-		const original=
-			resultado[0]
-				.transcript
-				.trim();
-
-		const texto=
-			normalizar(original);
-
-		if(!texto){
-			return;
-		}
-
-		commandText.textContent=
-			original;
-
-		if(
-			texto.includes("atlas acorda bebe")||
-			texto.includes("atlas acorda")
-		){
-
-			executarAcorda();
-
-			return;
-		}
-
-		if(!texto.includes("atlas")){
-			return;
-		}
-
-		const comando=
-			texto
-				.replace(/\batlas\b/g,"")
-				.trim();
-
-		if(!comando){
-
-			responder(
-				resposta(dialogos.presente)
-			);
-
-			return;
-		}
-
-		executarComando(comando);
-
-	};
-
-	recognition.onerror=event=>{
-
-		iniciando=false;
-
-		if(event.error==="not-allowed"){
-
-			ouvindo=false;
-
-			voiceState.textContent=
-				"BLOCKED";
-
-			systemStatus.textContent=
-				"MIC BLOCKED";
-
-			status.textContent=
-				"Permissão do microfone bloqueada.";
-
-			micButton.textContent=
-				"[ INICIAR SISTEMA ]";
-
-			micButton.classList.remove(
-				"active"
-			);
-
-			return;
-		}
-
-		if(event.error==="aborted"){
-			return;
-		}
-
-		if(event.error==="no-speech"){
-
-			reiniciarReconhecimento();
-
-			return;
-		}
-
-		if(
-			event.error==="network"||
-			event.error==="audio-capture"
-		){
-
-			reiniciarReconhecimento();
-
-			return;
-		}
-
-		reiniciarReconhecimento();
-
-	};
-
-	recognition.onend=()=>{
-
-		iniciando=false;
-
-		if(
-			ouvindo&&
-			!falando
-		){
-
-			reiniciarReconhecimento();
-
-			return;
-		}
-
-		if(!ouvindo){
-
-			voiceState.textContent=
-				"OFFLINE";
-
-			systemStatus.textContent=
-				"STANDBY";
-
-			micButton.textContent=
-				"[ INICIAR SISTEMA ]";
-
-			micButton.classList.remove(
-				"active"
-			);
-
-		}
-
-	};
-
-}
-
-function ativarSistema(){
-
-	if(!recognition){
-
-		status.textContent=
-			"Seu navegador não suporta reconhecimento de voz.";
-
-		systemStatus.textContent=
-			"VOICE ERROR";
-
-		return;
-	}
-
-	if(ouvindo){
-		return;
-	}
-
-	ouvindo=true;
-
-	micButton.textContent=
-		"[ PARAR SISTEMA ]";
-
-	micButton.classList.add(
-		"active"
-	);
-
-	voiceState.textContent=
-		"STARTING";
-
-	systemStatus.textContent=
-		"STARTING";
-
-	status.textContent=
-		"Inicializando sistema de voz...";
-
-	iniciarReconhecimento();
-
-}
-
-function desativarSistema(){
-
-	ouvindo=false;
-
-	clearTimeout(
-		reinicioTimer
-	);
-
-	if("speechSynthesis" in window){
-		speechSynthesis.cancel();
-	}
-
-	falando=false;
-
-	pararReconhecimento();
-
-	voiceState.textContent=
-		"OFFLINE";
-
-	systemStatus.textContent=
-		"STANDBY";
-
-	micButton.textContent=
-		"[ INICIAR SISTEMA ]";
-
-	micButton.classList.remove(
-		"active"
-	);
-
-	status.textContent=
-		"Sistema em espera.";
-
-}
-
-micButton.onclick=()=>{
-
-	if(ouvindo){
-
-		desativarSistema();
-
-	}else{
-
-		ativarSistema();
-
-	}
-
-};
-
-function executarInput(){
-
-	const texto=
-		commandInput.value.trim();
-
-	if(!texto){
-		return;
-	}
-
-	commandText.textContent=
-		texto;
-
-	const comando=
-		normalizar(texto);
-
-	if(
-		comando.includes("atlas acorda bebe")||
-		comando.includes("atlas acorda")
-	){
-
-		executarAcorda();
-
-	}else{
-
-		executarComando(comando);
-
-	}
-
-	commandInput.value="";
-
-}
-
-sendButton.onclick=
-	executarInput;
-
-commandInput.onkeydown=
-	event=>{
-
-		if(event.key==="Enter"){
-			executarInput();
-		}
-
-	};
-
-document.addEventListener(
-	"visibilitychange",
-	()=>{
-
-		if(
-			document.visibilityState==="visible"&&
-			ouvindo&&
-			!falando
-		){
-
-			reiniciarReconhecimento();
-
-		}
-
-	}
-);
-
-window.addEventListener(
-	"beforeunload",
-	()=>{
-
-		ouvindo=false;
-
-		clearTimeout(
-			reinicioTimer
-		);
-
-		if(recognition){
-
-			try{
-				recognition.abort();
-			}catch(e){}
-
-		}
-
-		if(
-			"speechSynthesis" in window
-		){
-
-			speechSynthesis.cancel();
-
-		}
-
-	}
-);
-
-window.addEventListener(
-	"load",
-	()=>{
-
-		setTimeout(()=>{
-
-			if(!recognition){
-
-				status.textContent=
-					"Reconhecimento de voz não disponível neste navegador.";
-
-				systemStatus.textContent=
-					"VOICE ERROR";
-
-				return;
-			}
-
-			ativarSistema();
-
-		},800);
-
-	}
-);
-
-</script>
-
+  <div class="dashboard">
+    <div class="commands-panel">
+      <h2>MANUAL DE COMANDOS</h2>
+      
+      <div class="commands-list">
+        <div class="command-item">
+          <strong>💡 AUTOMAÇÃO RESIDENCIAL:</strong>
+          "Atlas, acender lampada"<br>
+          "Atlas, apagar lampada"
+        </div>
+        <div class="command-item">
+          <strong>🌐 PLATAFORMAS / APPS:</strong>
+          "Atlas, abra o modelador"<br>
+          "Atlas, abra o codigo"<br>
+          "Atlas, abra a central de videos"
+        </div>
+        <div class="command-item">
+          <strong>📂 BLOCO DE NOTAS:</strong>
+          "Atlas, abra / feche o bloco"
+        </div>
+        <div class="command-item">
+          <strong>⏱️ TEMPORIZADOR:</strong>
+          "Atlas, temporizador de X segundos / minutos"
+        </div>
+        <div class="command-item">
+          <strong>📄 LER ARQUIVO:</strong>
+          "Atlas, leia o arquivo [nome do arquivo]"
+        </div>
+        <div class="command-item">
+          <strong>🔋 BATERIA:</strong>
+          "Atlas, status da bateria"
+        </div>
+        <div class="command-item">
+          <strong>🔴 PROTOCOLO ZERO:</strong>
+          "Atlas, protocolo zero" ou "Atlas, limpar tudo"
+        </div>
+        <div class="command-item">
+          <strong>🎨 MODOS TÁTICOS:</strong>
+          "Atlas, modo furtivo" / "Atlas, modo normal"
+        </div>
+        <div class="command-item">
+          <strong>📝 ANOTAÇÕES AUTOMÁTICAS:</strong>
+          "Atlas, anote aí [sua mensagem]"
+        </div>
+        <div class="command-item">
+          <strong>🔢 CÁLCULOS / HORA:</strong>
+          "Atlas, quanto é [X] mais [Y]"<br>
+          "Atlas, que horas são?"
+        </div>
+      </div>
+    </div>
+
+    <div class="chassis">
+      <h1>ATLAS</h1>
+
+      <div class="caixa-ip">
+        <label for="ipLampada">ENDEREÇO IP DA LÂMPADA:</label>
+        <input type="text" id="ipLampada" placeholder="Ex: 192.168.1.50:1880">
+        <button class="btn-tactical" onclick="salvarIp()">[+] DEFINIR IP</button>
+        <div class="lamp-controls">
+          <button class="btn-tactical" onclick="enviarComandoLampada('ligar')">LIGAR</button>
+          <button class="btn-tactical btn-amber" onclick="enviarComandoLampada('desligar')">DESLIGAR</button>
+        </div>
+      </div>
+      
+      <div class="controls">
+        <button class="btn-tactical" onclick="selecionarPastaProjetos()">[+] Montar Unidade</button>
+        <div id="folder-status" class="folder-info">> STATUS: NENHUM REPOSITÓRIO CONECTADO</div>
+      </div>
+
+      <div class="visualizer">
+        <div class="core-ring"></div>
+        <div id="status-orb" class="orb"></div>
+      </div>
+
+      <p id="status-text">[HOLD ESPAÇO] PARA TRANSMITIR</p>
+      
+      <div class="terminal-box">
+        <p><span class="prompt-label">USER@ATLAS:~#</span> <span id="user-input" class="highlight">AGUARDANDO...</span></p>
+        <p><span class="prompt-label">ATLAS_SYS:></span> <span id="atlas-response" class="response-text">SISTEMAS OPERACIONAIS.</span></p>
+      </div>
+    </div>
+
+    <div id="notepad-panel" class="notepad-panel">
+      <button class="close-btn" onclick="fecharBlocoManualmente()" title="Fechar Bloco de Notas">[X]</button>
+      <h2>LOG / BLOCO DE NOTAS</h2>
+      
+      <textarea id="notepad" class="notepad-textarea" readonly placeholder="> Suas anotações aparecerão aqui..."></textarea>
+      
+      <div class="notepad-actions">
+        <button class="btn-tactical btn-amber" onclick="limparBloco()">[C] Limpar Log</button>
+        <button class="btn-tactical btn-amber" onclick="baixarBloco()">[V] Baixar TXT</button>
+        <button class="btn-tactical btn-amber" onclick="fecharBlocoManualmente()">[X] Fechar Bloco</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Navegador incompatível com voz. Use Chrome ou Edge.");
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'pt-BR';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    const statusText = document.getElementById('status-text');
+    const statusOrb = document.getElementById('status-orb');
+    const userInputText = document.getElementById('user-input');
+    const atlasResponseText = document.getElementById('atlas-response');
+    const folderStatus = document.getElementById('folder-status');
+    const notepadPanel = document.getElementById('notepad-panel');
+    const notepad = document.getElementById('notepad');
+
+    let isListening = false;
+    let pastaHandle = null;
+    let timerId = null;
+    let ipAtual = "";
+
+    function salvarIp() {
+      const campo = document.getElementById("ipLampada");
+      ipAtual = campo.value.trim();
+      if (ipAtual !== "") {
+        falar("Endereço IP configurado para esta sessão.");
+      } else {
+        falar("Por favor, informe um IP válido.");
+      }
+    }
+
+    function enviarComandoLampada(acao) {
+      if (!ipAtual) {
+        falar("Endereço IP da lâmpada não configurado.");
+        return;
+      }
+
+      let baseUrl = ipAtual;
+      if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+        baseUrl = "http://" + baseUrl;
+      }
+
+      const urlFinal = `${baseUrl}/${acao}`;
+
+      fetch(urlFinal, { mode: 'no-cors' })
+        .then(() => {
+          console.log(`Comando /${acao} enviado para ${urlFinal}`);
+        })
+        .catch(error => {
+          console.error("Erro na requisição:", error);
+        });
+    }
+
+    function fecharBlocoManualmente() {
+      notepadPanel.classList.remove('visible');
+    }
+
+    function falar(texto, gravarNoLog = false, comandoUsuario = "") {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(texto);
+      utterance.lang = 'pt-BR';
+      utterance.rate = 1.05;
+      utterance.pitch = 0.9;
+
+      atlasResponseText.textContent = texto.toUpperCase();
+
+      if (gravarNoLog) {
+        notepadPanel.classList.add('visible');
+        escreverNoBloco(`VOCÊ: ${comandoUsuario}\nATLAS: ${texto}`);
+      }
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function escreverNoBloco(conteudo) {
+      const timestamp = new Date().toLocaleTimeString();
+      notepad.value += `[${timestamp}]\n${conteudo}\n-----------------------------------\n`;
+      notepad.scrollTop = notepad.scrollHeight;
+    }
+
+    function limparBloco() {
+      notepad.value = '';
+    }
+
+    function baixarBloco() {
+      const blob = new Blob([notepad.value], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Atlas_Notas_${Date.now()}.txt`;
+      a.click();
+    }
+
+    function abrirComoApp(url) {
+      const largura = 1280;
+      const altura = 720;
+      const esquerda = (screen.width - largura) / 2;
+      const topo = (screen.height - altura) / 2;
+
+      window.open(
+        url, 
+        '_blank', 
+        `popup=yes,width=${largura},height=${altura},top=${topo},left=${esquerda},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+      );
+    }
+
+    async function selecionarPastaProjetos() {
+      try {
+        pastaHandle = await window.showDirectoryPicker();
+        folderStatus.textContent = `> UNIDADE MONTADA: "${pastaHandle.name.toUpperCase()}"`;
+        falar(`Unidade ${pastaHandle.name} montada com sucesso.`);
+      } catch (err) {}
+    }
+
+    async function listarArquivosLocais(deveGravar, cmdOriginal) {
+      if (!pastaHandle) {
+        falar("Nenhuma unidade de projetos montada no sistema.", deveGravar, cmdOriginal);
+        return;
+      }
+
+      let lista = [];
+      for await (const entry of pastaHandle.values()) {
+        lista.push(entry.name);
+      }
+
+      if (lista.length === 0) {
+        falar("Diretório do projeto vazio.", deveGravar, cmdOriginal);
+      } else {
+        const itens = lista.slice(0, 5).join(', ');
+        falar(`Análise do repositório: Encontrados os arquivos ${itens}.`, deveGravar, cmdOriginal);
+      }
+    }
+
+    async function lerArquivoLocal(nomeArquivo, deveGravar, cmdOriginal) {
+      if (!pastaHandle) {
+        falar("Nenhuma unidade de projetos montada no sistema.", deveGravar, cmdOriginal);
+        return;
+      }
+
+      try {
+        for await (const entry of pastaHandle.values()) {
+          if (entry.kind === 'file' && entry.name.toLowerCase().includes(nomeArquivo)) {
+            const file = await entry.getFile();
+            const text = await file.text();
+            const resumo = text.slice(0, 200);
+            falar(`Conteúdo do arquivo ${entry.name}: ${resumo}`, deveGravar, cmdOriginal);
+            return;
+          }
+        }
+        falar(`Arquivo contendo o nome ${nomeArquivo} não foi encontrado.`, deveGravar, cmdOriginal);
+      } catch (e) {
+        falar("Falha ao tentar ler o arquivo solicitado.", deveGravar, cmdOriginal);
+      }
+    }
+
+    function calcularMatematica(comando) {
+      let texto = comando;
+      texto = texto.replace(/anote ai|anota ai|escreva|calcule|quanto e|quanto da/g, '');
+      texto = texto.replace(/multiplicado por|vezes| x /g, '*')
+                   .replace(/dividido por|dividido|por/g, '/')
+                   .replace(/mais/g, '+')
+                   .replace(/menos/g, '-');
+
+      let expressao = texto.replace(/[^0-9\+\-\*\/\.\(\)]/g, '').trim();
+
+      if (expressao.length > 0) {
+        try {
+          const resultado = Function(`'use strict'; return (${expressao})`)();
+          return { expressao, resultado };
+        } catch (e) {
+          return null;
+        }
+      }
+      return null;
+    }
+
+    async function processarComando(comandoBruto) {
+      let cmd = comandoBruto.toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[.,?!]/g, '')
+        .trim();
+
+      if (!cmd.includes('atlas')) {
+        falar("Por favor, diga 'Atlas' antes de dar um comando.");
+        return;
+      }
+
+      cmd = cmd.replace(/atlas/g, '').trim();
+
+      if (cmd.includes('acender lampada') || cmd.includes('ligar lampada')) {
+        if (!ipAtual) {
+          falar("Configure o endereço IP da lâmpada antes de acionar.");
+          return;
+        }
+        falar("Acendendo a lâmpada.");
+        enviarComandoLampada('ligar');
+        return;
+      }
+
+      if (cmd.includes('apagar lampada') || cmd.includes('desligar lampada')) {
+        if (!ipAtual) {
+          falar("Configure o endereço IP da lâmpada antes de acionar.");
+          return;
+        }
+        falar("Apagando a lâmpada.");
+        enviarComandoLampada('desligar');
+        return;
+      }
+
+      if (cmd.includes('modelador') || cmd.includes('onshape')) {
+        falar("Iniciando módulo modelador.");
+        abrirComoApp('https://cad.onshape.com');
+        return;
+      }
+
+      if (cmd.includes('codigo') || cmd.includes('vscode') || cmd.includes('vs code')) {
+        falar("Iniciando ambiente de programação.");
+        abrirComoApp('https://vscode.dev');
+        return;
+      }
+
+      if (cmd.includes('central de videos') || cmd.includes('youtube') || cmd.includes('videos')) {
+        falar("Acessando central de vídeos.");
+        abrirComoApp('https://www.youtube.com');
+        return;
+      }
+
+      if (/(protocolo zero|limpar tudo|emergencia)/.test(cmd)) {
+        limparBloco();
+        fecharBlocoManualmente();
+        userInputText.textContent = "SISTEMA REINICIADO";
+        falar("Protocolo zero ativado. Histórico e bloco de notas foram completamente apagados.");
+        return;
+      }
+
+      if (/(modo furtivo|modo noturno|modo vermelho)/.test(cmd)) {
+        document.body.classList.add('stealth-mode');
+        falar("Modo furtivo ativado.");
+        return;
+      }
+      if (/(modo normal|modo padrao|modo azul)/.test(cmd)) {
+        document.body.classList.remove('stealth-mode');
+        falar("Modo normal restaurado.");
+        return;
+      }
+
+      if (/(abra|abre|abrir|mostra|mostrar|exiba|exibir)/.test(cmd) && /(bloco|notas|log)/.test(cmd)) {
+        notepadPanel.classList.add('visible');
+        falar("Exibindo bloco de notas tático.");
+        return;
+      }
+      if (/(feche|fecha|fechar|esconda|esconder|oculte|ocultar)/.test(cmd) && /(bloco|notas|log)/.test(cmd)) {
+        fecharBlocoManualmente();
+        falar("Ocultando bloco de notas.");
+        return;
+      }
+
+      if (/(temporizador|cronometro|alarme|contagem)/.test(cmd)) {
+        const numeros = cmd.match(/\d+/g);
+        if (numeros && numeros.length > 0) {
+          let valor = parseInt(numeros[0]);
+          let segundos = cmd.includes('minuto') ? valor * 60 : valor;
+          
+          falar(`Temporizador configurado para ${valor} ${cmd.includes('minuto') ? 'minutos' : 'segundos'}.`);
+          
+          if (timerId) clearTimeout(timerId);
+          timerId = setTimeout(() => {
+            falar("Atenção! O temporizador tático expirou!", true, comandoBruto);
+          }, segundos * 1000);
+          return;
+        }
+      }
+
+      if (/(bateria|carga|energia)/.test(cmd)) {
+        if ('getBattery' in navigator) {
+          const battery = await navigator.getBattery();
+          const nivel = Math.round(battery.level * 100);
+          falar(`O nível de carga do sistema é de ${nivel} por cento.`);
+        } else {
+          falar("Módulo de leitura de bateria indisponível no navegador.");
+        }
+        return;
+      }
+
+      if (/(leia|ler|conteudo)/.test(cmd) && /(arquivo|texto|doc)/.test(cmd)) {
+        const palavras = cmd.split(' ');
+        const nomeAlvo = palavras[palavras.length - 1];
+        await lerArquivoLocal(nomeAlvo, true, comandoBruto);
+        return;
+      }
+
+      const eAnotacao = /(anote|anota|escreva|registre|registrar)/.test(cmd);
+
+      if (/(vezes|multiplicado|quanto e|calcule|mais|menos|dividido)/.test(cmd)) {
+        const calc = calcularMatematica(cmd);
+        if (calc && calc.resultado !== null && !isNaN(calc.resultado)) {
+          falar(`O resultado é ${calc.resultado}.`, eAnotacao, comandoBruto);
+          return;
+        }
+      }
+
+      if (/(projeto|projetos|arquivo|arquivos|pasta)/.test(cmd)) {
+        await listarArquivosLocais(eAnotacao, comandoBruto);
+        return;
+      }
+
+      if (/(hora|horas)/.test(cmd)) {
+        const agora = new Date();
+        const horas = agora.getHours();
+        const minutos = agora.getMinutes().toString().padStart(2, '0');
+        falar(`Agora são exatamente ${horas} horas e ${minutos} minutos.`, eAnotacao, comandoBruto);
+        return;
+      }
+
+      if (/(dia|data)/.test(cmd)) {
+        const agora = new Date();
+        const opcoes = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const dataFormatada = agora.toLocaleDateString('pt-BR', opcoes);
+        falar(`Hoje é ${dataFormatada}.`, eAnotacao, comandoBruto);
+        return;
+      }
+
+      if (eAnotacao) {
+        falar("Anotação registrada com sucesso.", true, comandoBruto);
+        return;
+      }
+
+      falar("Comando não reconhecido pelo sistema.");
+    }
+
+    recognition.onstart = () => {
+      isListening = true;
+      statusOrb.classList.add('listening');
+      statusText.innerHTML = "CAPTURANDO... <strong>[SOLTE ESPAÇO PARA ENVIAR]</strong>";
+    };
+
+    recognition.onresult = (event) => {
+      const textoTranscrito = event.results[0][0].transcript;
+      userInputText.textContent = textoTranscrito.toUpperCase();
+      processarComando(textoTranscrito);
+    };
+
+    recognition.onerror = () => {
+      statusOrb.classList.remove('listening');
+      statusText.innerHTML = "[HOLD ESPAÇO] PARA TRANSMITIR";
+    };
+
+    recognition.onend = () => {
+      isListening = false;
+      statusOrb.classList.remove('listening');
+      statusText.innerHTML = "[HOLD ESPAÇO] PARA TRANSMITIR";
+    };
+
+    window.addEventListener('keydown', (event) => {
+      if (event.code === 'Space' && !isListening && event.target === document.body) {
+        event.preventDefault();
+        try { recognition.start(); } catch (e) {}
+      }
+    });
+
+    window.addEventListener('keyup', (event) => {
+      if (event.code === 'Space' && isListening) {
+        event.preventDefault();
+        recognition.stop();
+      }
+    });
+  </script>
 </body>
 </html>
