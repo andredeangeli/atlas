@@ -499,12 +499,23 @@
 
       const urlFinal = `${baseUrl}/${acao}`;
 
-      fetch(urlFinal, { mode: 'no-cors' })
+      // AbortController cancela a conexao pendente em 800ms
+      // evitando travar requisiçoes em sequencia
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 800);
+
+      fetch(urlFinal, { 
+        mode: 'no-cors',
+        cache: 'no-store',
+        signal: controller.signal 
+      })
         .then(() => {
-          console.log(`Comando /${acao} enviado para ${urlFinal}`);
+          clearTimeout(timeoutId);
+          console.log(`Comando enviado para ${urlFinal}`);
         })
         .catch(error => {
-          console.error("Erro na requisição:", error);
+          clearTimeout(timeoutId);
+          console.log("Sinal emitido / conexao liberada para o proximo comando.");
         });
     }
 
